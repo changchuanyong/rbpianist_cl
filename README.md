@@ -2,10 +2,10 @@
 
 基于 MuJoCo 被动键（passive-key）钢琴场景的双臂演奏仿真包：RM75 双臂 + L20 灵巧手，
 回放已标定的双手《两只老虎》40 音计划，并在同一次连续仿真中核对实际落键/释放边沿。
-**本仓库是仿真/复验子集，仅仿真**：不含 ROS 控制器、MoveIt 或 RS485 真机控制代码，
-也未做真机验证。真机控制位于完整 `ros2_rm_robot` 工作空间的兄弟包
-（`rm_driver` 机械臂驱动、`rm_l20_driver` 灵巧手驱动、`rm_piano_player` 演奏节点），
-不在本仓库内；本仓库只负责 MuJoCo 侧的计划回放与验收。
+本仓库面向 **sim-to-real**：MuJoCo 仿真/复验子集 + 真机控制驱动包。
+仿真侧（`rm_mujoco`/`scripts`）不含真机控制逻辑；真机侧由 `rm_driver`（机械臂）、
+`rm_l20_driver`（灵巧手）、`rm_piano_player`（演奏节点）、`rm_ros_interfaces`
+（消息/服务）提供。**尚未做真机验证**，已发布结果均为仿真证据。
 
 ## 目录结构
 
@@ -17,6 +17,14 @@ rm_mujoco/   场景构建、键盘边沿、指法、轨迹采样与回放运行�
 scripts/     复验、回放与视频渲染入口
 examples/    冻结的 40 音基准（score.yaml / performance.yaml / manifest.json）
 verification/ 一次已通过的复验证据（report.json / run.json / run.log）
+rm_driver/   睿尔曼 RM 机械臂 ROS2 驱动（含厂商 libapi_cpp.so）
+rm_l20_driver/ L20 灵巧手 RS485 驱动（单/双手节点）
+rm_piano_player/ 真机演奏节点与曲目配置
+rm_ros_interfaces/ 驱动所需 msg/srv 定义
+rm_control/  机械臂跟随控制节点（bringup 依赖）
+rm_bringup/  真机一键启动 launch（driver+control+description+MoveIt+RViz）
+rm_description/ URDF/网格/TF 与双臂 joint_states 桥
+rm_moveit2_config/ MoveIt2 双臂规划配置（子包 rm_75_config）
 ```
 
 ## 环境依赖
@@ -71,6 +79,32 @@ python3 scripts/render_video.py --package "$package" --output /tmp/two_tigers_vi
 默认输出 `two_tigers_overview.mp4`（全景）与 `two_tigers_keys.mp4`（键盘特写），
 1280x720@30fps，绿色高亮为被按下的键。可用 `--views`、`--fps`、`--width/--height`、
 `--no-audio`、`--soundfont` 调整。
+
+## 真机控制（sim-to-real）
+
+真机包复制自完整 `ros2_rm_robot` 工作空间，保持原包名：
+
+- `rm_driver`：RM75 机械臂 ROS2 驱动；`config/rm_75_config.yaml` 设 arm_ip/udp_ip；
+  依赖 `lib/` 下厂商预编译 `libapi_cpp.so`（x86 与 arm64）。
+- `rm_l20_driver`：L20 灵巧手 RS485 驱动（单/双手节点）；
+  `config/hand_identity.yaml` 为左右手 UID，上电前须对照物理标签核对 L/R。
+- `rm_piano_player`：真机演奏节点与曲目/仿真配置（`config/piano*.yaml`）。
+- `rm_ros_interfaces`：驱动所需 msg/srv。
+- `rm_control`：机械臂跟随控制节点（bringup 依赖）。
+- `rm_bringup`：真机一键启动 launch，串起双臂 driver + control + 状态桥 + MoveIt + RViz。
+- `rm_description`：URDF/网格/TF 与双臂 `joint_states` 桥（`dual_arm_joint_state_bridge.py`）。
+- `rm_moveit2_config`：MoveIt2 双臂规划配置（子包 `rm_75_config`：SRDF/运动学/控制器；
+  `demo_6fb_v` 仿真执行、`real_moveit_demo_6fb_v` 真机执行）。
+
+真机一键启动（IP 按现场覆盖）：
+
+```bash
+ros2 launch rm_bringup rm_75_6fb_v_bringup.launch.py \
+  left_arm_ip:=<左臂IP> right_arm_ip:=<右臂IP>
+```
+
+配置/launch 中的内网 IP 与手 UID 为实验室现场值，部署或公开前请按现场修改；
+厂商 `.so` 的再分发请确认许可。**真机链路尚未验证。**
 
 ## 验收口径
 

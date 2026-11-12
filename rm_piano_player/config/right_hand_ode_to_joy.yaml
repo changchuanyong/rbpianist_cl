@@ -1,0 +1,62 @@
+# Record GUI COMMAND targets, not raw feedback or a 30-register array.
+# 20 slots: ROOT thumb..little, YAW thumb..little, ROLL thumb..little,
+# TIP thumb..little. Every value must be finite and within 0..255.
+# Candidate mapping only: thumb C4(60), index D4(62), middle E4(64),
+# ring F4(65), little G4(67). Confirm coverage with the actual mounting.
+# pose_test permits unverified filled poses. melody requires all six verified.
+# Sources updated 2026-10-23; read READY entries, ignore legacy PRESS_C entries.
+# E/F/G are estimates: transfer index deltas to the target finger in each group.
+# D/E/F/G: scale all deltas from READY by 0.5 after import/transfer.
+# Four-finger opening adjustment: add 15 to ROOT slots 01..04 and TIP 16..19
+# in all six poses. Thumb/YAW/ROLL unchanged; press-minus-READY deltas preserved.
+# Imported READY and PRESS_C are also shifted in those eight non-thumb slots.
+# verified flags retained per user request, not evidence of hardware validation.
+poses:
+  # Source: /home/dianjinglab/ready.yaml / READY
+  READY:
+    positions: [
+      142.0, 198.0, 197.0, 197.0, 196.0,
+      251.0, 93.0, 127.0, 129.0, 93.0,
+      126.0, 0.0, 0.0, 0.0, 0.0,
+      131.0, 100.0, 101.0, 102.0, 103.0]
+    verified: true
+  # Source: /home/dianjinglab/muzhi.yaml / READY (thumb press)
+  PRESS_C:
+    positions: [
+      142.0, 190.0, 189.0, 189.0, 188.0,
+      178.0, 93.0, 127.0, 129.0, 93.0,
+      127.0, 0.0, 0.0, 0.0, 0.0,
+      130.0, 93.0, 93.0, 94.0, 95.0]
+    verified: true
+  # Source: /home/dianjinglab/shizhi.yaml / READY; index press deltas halved.
+  PRESS_D:
+    positions: [
+      142.0, 139.5, 195.0, 195.0, 194.0,
+      249.5, 93.0, 127.0, 129.0, 93.0,
+      126.0, 0.0, 0.0, 0.0, 0.0,
+      131.0, 137.0, 99.0, 100.0, 101.0]
+    verified: true
+  # Estimated middle press; swap index/middle deltas relative to READY.
+  PRESS_E:
+    positions: [
+      142.0, 196.0, 138.5, 195.0, 194.0,
+      249.5, 93.0, 127.0, 129.0, 93.0,
+      126.0, 0.0, 0.0, 0.0, 0.0,
+      131.0, 98.0, 138.0, 100.0, 101.0]
+    verified: true
+  # Estimated ring press; swap index/ring deltas relative to READY.
+  PRESS_F:
+    positions: [
+      142.0, 196.0, 195.0, 138.5, 194.0,
+      249.5, 93.0, 127.0, 129.0, 93.0,
+      126.0, 0.0, 0.0, 0.0, 0.0,
+      131.0, 98.0, 99.0, 139.0, 101.0]
+    verified: true
+  # Estimated little press; swap index/little deltas relative to READY.
+  PRESS_G:
+    positions: [
+      142.0, 196.0, 195.0, 195.0, 137.5,
+      249.5, 93.0, 127.0, 129.0, 93.0,
+      126.0, 0.0, 0.0, 0.0, 0.0,
+      131.0, 98.0, 99.0, 100.0, 140.0]
+    verified: true
