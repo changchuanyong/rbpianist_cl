@@ -57,6 +57,15 @@
                 </state_interface>
                 <state_interface name="velocity"/>
             </joint>
+            <!-- Camera roll joint is revolute in the URDF but outside the planning
+                 group; expose its state so /joint_states is complete for MoveIt. -->
+            <joint name="camera_rojoint">
+                <command_interface name="position"/>
+                <state_interface name="position">
+                  <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+            </joint>
 
         </ros2_control>
     </xacro:macro>

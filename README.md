@@ -9,22 +9,33 @@
 
 ## 目录结构
 
+标准 ROS2 工作空间：ROS2 功能包位于 `src/`，MuJoCo 仿真资产以源码树形式留在仓库根目录。
+
 ```
-config/      场景布局（桌面/基座/钢琴框架/键盘/相机）与右手仿真参数
-models/      钢琴键盘与 RM75+双 L20 的 MJCF 模板
-meshes/      RM75 与 L20 右手网格（STL）
-rm_mujoco/   场景构建、键盘边沿、指法、轨迹采样与回放运行时
-scripts/     复验、回放与视频渲染入口
-examples/    冻结的 40 音基准（score.yaml / performance.yaml / manifest.json）
-verification/ 一次已通过的复验证据（report.json / run.json / run.log）
-rm_driver/   睿尔曼 RM 机械臂 ROS2 驱动（含厂商 libapi_cpp.so）
-rm_l20_driver/ L20 灵巧手 RS485 驱动（单/双手节点）
-rm_piano_player/ 真机演奏节点与曲目配置
-rm_ros_interfaces/ 驱动所需 msg/srv 定义
-rm_control/  机械臂跟随控制节点（bringup 依赖）
-rm_bringup/  真机一键启动 launch（driver+control+description+MoveIt+RViz）
-rm_description/ URDF/网格/TF 与双臂 joint_states 桥
-rm_moveit2_config/ MoveIt2 双臂规划配置（子包 rm_75_config）
+src/                  ROS2 功能包（colcon 从此处发现并构建）
+  rm_driver/          睿尔曼 RM 机械臂 ROS2 驱动（含厂商 libapi_cpp.so）
+  rm_l20_driver/      L20 灵巧手 RS485 驱动（单/双手节点）
+  rm_piano_player/    真机演奏节点与曲目配置
+  rm_ros_interfaces/  驱动所需 msg/srv 定义
+  rm_control/         机械臂跟随控制节点（bringup 依赖）
+  rm_bringup/         真机一键启动 launch（driver+control+description+MoveIt+RViz）
+  rm_description/     URDF/网格/TF 与双臂 joint_states 桥
+  rm_moveit2_config/  MoveIt2 规划配置（子包 rm_75_config）
+  rm_moveit2/         MoveIt2 运动演示接口（simple_moveit_node）
+config/               场景布局（桌面/基座/钢琴框架/键盘/相机）与右手仿真参数
+models/               钢琴键盘与 RM75+双 L20 的 MJCF 模板
+meshes/               RM75 与 L20 右手网格（STL）
+rm_mujoco/            场景构建、键盘边沿、指法、轨迹采样与回放运行时
+scripts/              复验、回放与视频渲染入口
+examples/             冻结的 40 音基准（score.yaml / performance.yaml / manifest.json）
+verification/         一次已通过的复验证据（report.json / run.json / run.log）
+```
+
+构建 ROS2 工作空间（在仓库根目录）：
+
+```bash
+colcon build                          # 或 colcon build --packages-up-to rm_bringup
+source install/setup.bash
 ```
 
 ## 环境依赖
