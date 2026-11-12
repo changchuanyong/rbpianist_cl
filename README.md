@@ -91,6 +91,70 @@ python3 scripts/render_video.py --package "$package" --output /tmp/two_tigers_vi
 1280x720@30fps，绿色高亮为被按下的键。可用 `--views`、`--fps`、`--width/--height`、
 `--no-audio`、`--soundfont` 调整。
 
+## 启动步骤（ROS2 / 真机）
+
+仿真回放/渲染见上文「入口」（源码树模式，无需 ROS）。以下为 ROS2 侧启动；每个终端先
+`source install/setup.bash`。
+
+### 1. 构建工作空间
+
+```bash
+cd rbpianist_cl
+colcon build                       # 全量；真机演奏链也可 --packages-up-to rm_piano_player
+source install/setup.bash
+```
+
+Jetson(aarch64) 首次需在 `src/rm_driver/lib/` 执行 `sudo ./lib_install.sh` 安装 arm64 厂商库。
+
+### 2. MoveIt fake 演示（无硬件，已验证）
+
+```bash
+colcon build --packages-up-to rm_moveit2   # 无需厂商库/sudo
+source install/setup.bash
+```
+
+终端 A 启动假执行 bringup（rsp + mock ros2_control + move_group + 控制器）：
+
+```bash
+ros2 launch rm_75_config demo_6fb_v.launch.py use_rviz:=false
+```
+
+待日志出现 “You can start planning now!” 且 `ros2 control list_controllers` 显示
+`rm_group_controller`、`joint_state_broadcaster` 均 active，终端 B 运行演示节点：
+
+```bash
+ros2 launch rm_moveit2 moveit_rm75.launch.py planning_group:=rm_group
+```
+
+`simple_moveit_node` 依次执行：启动关节目标 → 笛卡尔圆弧/直线 → 回零；全程 `mock_components`
+假执行，不动真机。
+
+### 3. 真机启动（务必先完成「上机前检查」）
+
+真机演奏由 `rm_piano_player` 统一编排，fail-closed：双手就绪 → 双臂 bringup → 演奏节点。
+
+```bash
+ros2 launch rm_piano_player rm_75_dual_l20_piano_real.launch.py \
+  left_arm_ip:=<左臂IP> right_arm_ip:=<右臂IP> \
+  left_udp_ip:=<主机IP> right_udp_ip:=<主机IP> \
+  left_udp_port:=8089 right_udp_port:=8090 \
+  midi_file:=<曲目.mid> \
+  execute:=false use_rviz:=false
+```
+
+分级试跑（任一步异常即急停排查，不得跳步）：
+
+1. `execute:=false` 起步，确认手就绪、臂使能、`/joint_states` 与左右
+   `rm_group_controller/follow_joint_trajectory` 动作就位；
+2. 单音慢速：`execute:=true tempo_scale:=0.5`，验证落键/释放；
+3. 无异常后逐步提速到目标速度。
+
+其他入口：
+
+- 仅双臂 + MoveIt（不含手/演奏）：
+  `ros2 launch rm_bringup rm_75_6fb_v_bringup.launch.py left_arm_ip:=<…> right_arm_ip:=<…>`
+- 仅双手 RS485：`ros2 launch rm_l20_driver l20_dual_rs485.launch.py`
+
 ## 真机控制（sim-to-real）
 
 真机包复制自完整 `ros2_rm_robot` 工作空间，保持原包名：
@@ -116,6 +180,52 @@ ros2 launch rm_bringup rm_75_6fb_v_bringup.launch.py \
 
 配置/launch 中的内网 IP 与手 UID 为实验室现场值，部署或公开前请按现场修改；
 厂商 `.so` 的再分发请确认许可。**真机链路尚未验证。**
+
+## 上机前检查（真机部署）
+
+**真机链路尚未验证**（仅 MuJoCo 仿真与 MoveIt fake 执行已验证）。上机前逐项确认下列清单，
+任何一项不满足都不要使能运动。分离线配置检查与现场必检，最后按分级流程试跑。
+
+### A. 离线配置检查（连接硬件前）
+
+1. **构建与厂商库**：仓库根 `colcon build` 通过；Jetson(aarch64) 在 `src/rm_driver/lib/`
+   执行 `sudo ./lib_install.sh` 安装 arm64 `libapi_cpp.so` 到 `/usr/local/lib`（脚本按 `uname -m` 选架构）。
+2. **控制器名一致（真机）**：真机由 `rm_control` 在 `left_arm`/`right_arm` 命名空间提供
+   `rm_group_controller/follow_joint_trajectory` 动作（`src/rm_control/src/rm_control.cpp`），
+   须与 `rm_75_config/config/moveit_controllers_dual.yaml` 的 `left_arm/rm_group_controller`、
+   `right_arm/rm_group_controller` 一致。`ros2_controllers_dual.yaml`（`left_arm_controller`，mock JTC）
+   仅用于 fake/gazebo，不参与真机。
+3. **网络参数统一**：`arm_ip` 左/右（默认 192.168.1.18 / 192.168.1.19）、`tcp_port` 8080；
+   `udp_ip` 必须为主机在臂网段的真实 IP，`udp_port` 左 8089 / 右 8090。
+   **默认值不一致**：`rm_bringup` 默认 `udp_ip=192.168.1.100`，而
+   `rm_piano_player/launch/rm_75_dual_l20_piano_real.launch.py` 默认 `192.168.1.10`——
+   上机时按现场统一覆盖 `left_udp_ip`/`right_udp_ip`。
+4. **手 UID 与串口**：`src/rm_l20_driver/config/hand_identity.yaml` 的
+   `left_hand_uid=LHT20-011-260-L-B-1-D`、`right_hand_uid=LHT20-011-266-R-B-1-D`
+   须对照物理标签核对 L/R；RS485 端口默认 `auto`（可用 `left_hand_port`/`right_hand_port` 指定），
+   `baudrate=115200`、`slave_id=1`。
+5. **标定值复核**：bringup 双臂安装 `left_xyz='0 -0.35 0.5'`、`right_xyz='0 0.35 0.5'`、rpy 均 0；
+   `piano_frame` 固定于 `base_root`（`piano_xyz` 默认 0）。player 键几何（`piano_midi.yaml`，均在 piano_frame）：
+   `key_x_start=0.30`、`key_x_step=0.014`、`key_z=0.312`、`approach_height=0.04`、`press_depth=0.008`。
+   这些为实验室/近似值，须按实物重新标定后再上机。
+6. **安全默认**：player `execute=false`（须显式 `execute:=true` 才运动）、
+   `velocity_scaling=acceleration_scaling=0.10`。**`tempo_scale` 默认偏高**
+   （真机 launch 4.0 / `piano_midi.yaml` 2.0），首次上机降到 ≤1.0（仿真基准为 1×）。
+
+### B. 现场必检（上电/运动前）
+
+- 急停可达且有效；工作区无人/无障碍；臂处于安全起始位姿；抱闸/使能按规程释放。
+- 网络连通：`ping <左臂IP>`、`ping <右臂IP>` 通；主机 `udp_ip` 与臂同网段。
+- 手 RS485 物理连接正确，L/R 与 UID 一致；`l20_wait_ready` 就绪
+  （fail-closed：就绪失败或手驱动退出则不释放臂/演奏）。
+- 启动后核对：`/joint_states` 含左右各 7 关节、TF 正确；`ros2 action list` 含
+  `/left_arm/rm_group_controller/follow_joint_trajectory` 与右臂同名动作。
+- 无头 Jetson 设 `use_rviz:=false`（rviz 无显示会退出，不影响链路）。
+
+### C. 分级上电与试跑
+
+按「启动步骤」§2–§3 执行：fake 预演 → 手就绪 + 臂 bringup（`execute:=false`）→
+单音慢速（`tempo_scale:=0.5`、`execute:=true`）→ 整曲逐步提速。任一步异常即急停排查，不得跳步。
 
 ## 验收口径
 
